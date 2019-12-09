@@ -64,13 +64,18 @@ fi
 sudo cp mariadb-java-client.jar ${WILDFLY_HOME}/standalone/deployments/
 sudo chown -RH wildfly: /opt/wildfly/standalone/deployments/
 
+echo "Installing mysql driver..."
+
 sudo service wildfly restart
 
 wait_for_server() {
+COUNTER=1
 sleep 2
-until $(curl --output /dev/null --silent --head --fail http://localhost:8080/); do
-    echo "waiting for service to start...."
+until [ $(curl --output /dev/null --silent --head --fail http://localhost:8080/) ] || [ $COUNTER -eq 10 ] 
+do
+    echo "waiting for service to start...." $COUNTER
     sleep 2
+    ((COUNTER++))
 done
 }
 
@@ -78,6 +83,8 @@ wait_for_server
 
 sudo cp *.properties ejbca_ce_$EJBCA_VERSION/conf/
 sudo chown -RH wildfly: ejbca_ce_$EJBCA_VERSION/
+
+echo "updating wildfly datasource..."
 
 sudo -u wildfly -g wildfly ${WILDFLY_HOME}/bin/jboss-cli.sh -c 'data-source add --name=EjbcaDS --driver-name="mariadb-java-client.jar" --connection-url="jdbc:mysql://127.0.0.1:3306/ejbca" --jndi-name="java:/EjbcaDS" --use-ccm=true --driver-class="org.mariadb.jdbc.Driver" --user-name="ejbca" --password="ejbca" --validate-on-match=true --background-validation=false --prepared-statements-cache-size=50 --share-prepared-statements=true --min-pool-size=5 --max-pool-size=150 --pool-prefill=true --transaction-isolation=TRANSACTION_READ_COMMITTED --check-valid-connection-sql="select 1;"'
 sudo -u wildfly -g wildfly ${WILDFLY_HOME}/bin/jboss-cli.sh -c "/subsystem=remoting/http-connector=http-remoting-connector:write-attribute(name=connector-ref,value=remoting),
@@ -99,10 +106,13 @@ wait_for_server
 sudo -u wildfly -g wildfly ant -f ejbca_ce_$EJBCA_VERSION/build.xml -q clean deployear
 
 wait_for_ejbca() {
+COUNTER=1
 sleep 5
-until $(curl --output /dev/null --silent --head --fail http://localhost:8080/ejbca/); do
+until [ $(curl --output /dev/null --silent --head --fail http://localhost:8080/ejbca/) ] || [ $COUNTER -eq 10 ]
+do
     echo "waiting for ejbca to start...."
     sleep 2
+    ((COUNTER++))
 done
 }
 
@@ -112,6 +122,8 @@ sudo -u wildfly -g wildfly ant -f ejbca_ce_$EJBCA_VERSION/build.xml runinstall
 sudo -u wildfly -g wildfly ant -f ejbca_ce_$EJBCA_VERSION/build.xml deploy-keystore
 sudo cp -i -r ejbca_ce_$EJBCA_VERSION/p12/ .
 
+echo "removing listeners..."
+
 sudo -u wildfly -g wildfly ${WILDFLY_HOME}/bin/jboss-cli.sh -c '/subsystem=undertow/server=default-server/http-listener=default:remove(),
 /subsystem=undertow/server=default-server/https-listener=https:remove(),
 /socket-binding-group=standard-sockets/socket-binding=http:remove(),
@@ -119,6 +131,10 @@ sudo -u wildfly -g wildfly ${WILDFLY_HOME}/bin/jboss-cli.sh -c '/subsystem=under
 :reload'
 
 sleep 6
+
+wait_for_ejbca
+
+echo "installing listeners..."
 
 sudo -u wildfly -g wildfly ${WILDFLY_HOME}/bin/jboss-cli.sh -c '
 /interface=http:add(inet-address="0.0.0.0"),
@@ -139,6 +155,8 @@ sudo -u wildfly -g wildfly ${WILDFLY_HOME}/bin/jboss-cli.sh -c '
 
 sudo service wildfly restart
 wait_for_ejbca
+
+echo "fianl config..."
 
 sudo -u wildfly -g wildfly ${WILDFLY_HOME}/bin/jboss-cli.sh -c '/system-property=org.apache.catalina.connector.URI_ENCODING:add(value="UTF-8"),
 /system-property=org.apache.catalina.connector.USE_BODY_ENCODING_FOR_QUERY_STRING:add(value=true),
