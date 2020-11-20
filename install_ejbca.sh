@@ -2,13 +2,13 @@
 # Author: Kobus Grobler
 #
 
-EJBCA_VERSION="6_15_2_1"
-SHASUM="74743302559645761481ce17259541f2b0d66c97cea051c8dff511bb037642a7"
+EJBCA_VERSION="6_15_2_6"
+SHASUM="2ecd4c23e4d34eb590d50d7fb0d5d5c37b48aa00be115214ddad1d6051ce2a5c"
 WILDFLY_HOME="/opt/wildfly"
 DB_VERSION="2.2.6"
 DB_SHASUM="4d28fbd8fd4ea239b0ef9482f56ce77e2ef197a60d523a8ee3c84eb984fc76fe"
-EHSM_VERSION=2.1
-EHSM_SHASUM="0a9547555f804d81aca21ea89a95044ad0f42e494723eef44dee27f73ecd6a57"
+EHSM_VERSION=2.7
+EHSM_SHASUM="8e6dd05577456a7a4e01099bedbb3e2c953b7402358b10fa51c4e5d8b33ad58f"
 
 sudo apt-get install ant mariadb-server
 sudo usermod -a -G plugdev wildfly
@@ -103,6 +103,8 @@ sudo service wildfly restart
 
 wait_for_server
 
+echo "Deploying ear..."
+
 sudo -u wildfly -g wildfly ant -f ejbca_ce_$EJBCA_VERSION/build.xml -q clean deployear
 
 wait_for_ejbca() {
@@ -154,10 +156,10 @@ sudo -u wildfly -g wildfly ${WILDFLY_HOME}/bin/jboss-cli.sh -c '
 /subsystem=undertow/server=default-server/https-listener=httpspriv:add(socket-binding="httpspriv", ssl-context="httpspriv", max-parameters=2048)'
 
 sudo service wildfly restart
+echo "Waiting for wildfly to start on new ports..."
 wait_for_ejbca
 
-echo "fianl config..."
-
+echo "Adding wsdl services..." 
 sudo -u wildfly -g wildfly ${WILDFLY_HOME}/bin/jboss-cli.sh -c '/system-property=org.apache.catalina.connector.URI_ENCODING:add(value="UTF-8"),
 /system-property=org.apache.catalina.connector.USE_BODY_ENCODING_FOR_QUERY_STRING:add(value=true),
 /system-property=org.apache.tomcat.util.buf.UDecoder.ALLOW_ENCODED_SLASH:add(value=true),
@@ -167,4 +169,5 @@ sudo -u wildfly -g wildfly ${WILDFLY_HOME}/bin/jboss-cli.sh -c '/system-property
 /subsystem=webservices:write-attribute(name=modify-wsdl-address, value=true)'
 
 sudo service wildfly restart
+
 wait_for_ejbca

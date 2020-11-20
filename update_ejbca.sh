@@ -1,7 +1,6 @@
 #!/bin/bash
 
-EJBCA_VERSION="6_15_2_1"
-SHASUM="74743302559645761481ce17259541f2b0d66c97cea051c8dff511bb037642a7"
+EJBCA_VERSION="6_15_2_6"
 WILDFLY_HOME="/opt/wildfly"
 
 sudo cp *.properties ejbca_ce_$EJBCA_VERSION/conf/
